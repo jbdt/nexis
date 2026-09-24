@@ -1,0 +1,917 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#05070c;color:#e9edf5}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Orbital Swarm</title>
+<style>
+  :root {
+    --bg-deep: #05070c;
+    --bg: #0a0d15;
+    --panel: #10141f;
+    --line: #232a3b;
+    --text: #e9edf5;
+    --text-dim: #8991a8;
+    --player: #45e0c4;
+    --player-glow: rgba(69, 224, 196, 0.35);
+    --player-dim: #1c3733;
+    --neutral: #6b7590;
+    --neutral-dim: #262c3d;
+    --victory: #f2d24e;
+    --danger: #e0645f;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-deep);
+  }
+
+  body {
+    margin: 0;
+    padding-inline: 0;
+    display: flex;
+    flex-direction: column;
+    font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    color: var(--text);
+    overflow: hidden;
+    background: var(--bg-deep);
+  }
+
+  .titlefont {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    background: linear-gradient(180deg, var(--panel), rgba(16, 20, 31, 0.85));
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+    z-index: 5;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .brand p {
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+  }
+
+  .hud {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .hud strong {
+    color: var(--player);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hud .time {
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  button.reset {
+    font-family: inherit;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  button.reset:hover {
+    border-color: var(--player);
+    color: var(--player);
+  }
+
+  button.reset:focus-visible {
+    outline: 2px solid var(--player);
+    outline-offset: 2px;
+  }
+
+  main {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .hint {
+    position: absolute;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    background: rgba(10, 13, 21, 0.72);
+    border: 1px solid var(--line);
+    padding: 7px 14px;
+    border-radius: 999px;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    text-align: center;
+    max-width: calc(100% - 32px);
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 7, 12, 0.82);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+
+  .overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px 30px;
+    text-align: center;
+    max-width: 320px;
+    width: calc(100% - 40px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  .card .medal {
+    font-size: 2rem;
+    margin-bottom: 6px;
+    color: var(--victory);
+  }
+
+  .card h2 {
+    margin: 0 0 6px;
+    font-size: 1.2rem;
+    color: var(--text);
+  }
+
+  .card p {
+    margin: 0 0 18px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .card .stat {
+    color: var(--player);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card button {
+    font-family: inherit;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--player);
+    color: #06231f;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  @media (max-width: 480px) {
+    header { padding: 12px 14px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+    .brand h1 { font-size: 0.92rem; }
+    .hud { gap: 10px; font-size: 0.68rem; }
+  }
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-deep);z-index:10}#menu{gap:16px}#menu button{font:600 20px Sora,sans-serif;padding:16px 32px;cursor:pointer;background:var(--panel);color:var(--text);border:1px solid var(--player);border-radius:8px}
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<div id="menu"><button id="btn-test" type="button">Test 1</button><button id="btn-test2" type="button">Test 2</button></div>
+
+<header hidden>
+  <div class="brand">
+    <h1 class="titlefont">Orbital Swarm</h1>
+    <p>Test system &middot; no rivals</p>
+  </div>
+  <div class="hud">
+    <span>Planets <strong id="hud-planets">10/18</strong></span>
+    <span class="time" id="hud-time">00:00</span>
+    <button class="reset" id="btn-reset" type="button">Restart</button>
+  </div>
+</header>
+
+<main hidden>
+  <canvas id="game"></canvas>
+  <div class="hint" id="hint">Drag from your planet to another to lay a connection. Drag across a line to cut it.</div>
+  <div class="overlay" id="overlay">
+    <div class="card">
+      <div class="medal">&#9679;</div>
+      <h2 class="titlefont">System conquered</h2>
+      <p>You took all 18 planets in <span class="stat" id="final-time">00:00</span>.</p>
+      <button id="btn-again" type="button">Play again</button>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var hintEl = document.getElementById('hint');
+  var hudPlanets = document.getElementById('hud-planets');
+  var hudTime = document.getElementById('hud-time');
+  var overlay = document.getElementById('overlay');
+  var finalTimeEl = document.getElementById('final-time');
+
+  var DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2.5));
+  var W = 0, H = 0; // CSS pixels
+
+  var SIZES = {
+    S: { r: 21, cap: 30 },
+    M: { r: 29, cap: 100 },
+    L: { r: 38, cap: 200 }
+  };
+
+  var MIN_RATE = 0.3;
+  var GROW_RATE = 0.3;
+  var MAX_RATE = 3;
+  var RATE_UNITS_MAX = 200;
+  var UNIT_SPEED = 0.22; // fraction of playfield diagonal per second, per traveling unit
+  var LINE_SPEED = 0.12;
+  var LINE_COST = 25; // units spent to extend a line across the whole playfield diagonal
+  var PADDING = 0.11; // normalized margin around playfield
+
+  var COLORS = { player: '69,224,196', orange: '240,160,80', violet: '176,124,240', neutral: '107,117,144' };
+
+  var scenario1 = [
+    { x: 0.2, y: 0.060, size: 'S', owner: 'player', units: 6 },
+    { x: 0.2, y: 0.158, size: 'S', owner: 'player', units: 15 },
+    { x: 0.2, y: 0.256, size: 'S', owner: 'player', units: 30 },
+    { x: 0.2, y: 0.353, size: 'M', owner: 'player', units: 50 },
+    { x: 0.2, y: 0.451, size: 'M', owner: 'player', units: 80 },
+    { x: 0.2, y: 0.549, size: 'M', owner: 'player', units: 100 },
+    { x: 0.2, y: 0.647, size: 'L', owner: 'player', units: 120 },
+    { x: 0.2, y: 0.744, size: 'L', owner: 'player', units: 150 },
+    { x: 0.2, y: 0.842, size: 'L', owner: 'player', units: 180 },
+    { x: 0.2, y: 0.940, size: 'L', owner: 'player', units: 200 },
+    { x: 0.8, y: 0.060, size: 'S', owner: 'neutral', units: 30 },
+    { x: 0.8, y: 0.186, size: 'S', owner: 'neutral', units: 30 },
+    { x: 0.8, y: 0.311, size: 'S', owner: 'neutral', units: 30 },
+    { x: 0.8, y: 0.437, size: 'S', owner: 'neutral', units: 30 },
+    { x: 0.8, y: 0.563, size: 'S', owner: 'neutral', units: 30 },
+    { x: 0.8, y: 0.689, size: 'S', owner: 'neutral', units: 30 },
+    { x: 0.8, y: 0.814, size: 'S', owner: 'neutral', units: 30 },
+    { x: 0.8, y: 0.940, size: 'S', owner: 'neutral', units: 30 }
+  ];
+
+  var scenario2 = [
+    { x: 0.15, y: 0.2, size: 'M', owner: 'player', units: 50 },
+    { x: 0.85, y: 0.2, size: 'M', owner: 'orange', units: 50 },
+    { x: 0.5, y: 0.9, size: 'M', owner: 'violet', units: 50 },
+    { x: 0.5, y: 0.15, size: 'S', owner: 'neutral', units: 20 },
+    { x: 0.25, y: 0.65, size: 'S', owner: 'neutral', units: 20 },
+    { x: 0.75, y: 0.65, size: 'S', owner: 'neutral', units: 20 }
+  ];
+
+  var levelDef = scenario1;
+
+  var nodes = [];
+  var fleets = [];
+  var stars = [];
+  var elapsed = 0;
+  var won = false;
+  var dragSource = null;
+  var pointerPos = null;
+  var activePointerId = null;
+  var hintFaded = false;
+
+  var cutting = false;
+  var cutPointerId = null;
+  var lastCutPoint = null;
+  var cutTrail = [];
+  var sparks = [];
+
+  function radiusFor(units) {
+    return 12 + 1.9 * Math.sqrt(units);
+  }
+
+  function cloneLevel() {
+    return levelDef.map(function (n, i) {
+      var spec = SIZES[n.size];
+      return {
+        id: i,
+        x: n.x,
+        y: n.y,
+        size: n.size,
+        r: radiusFor(n.units),
+        cap: spec.cap,
+        owner: n.owner,
+        units: n.units,
+        prodProgress: 0,
+        growProgress: 0,
+        links: [],
+        grow: {},
+        meet: {},
+        retract: {},
+        far: {}
+      };
+    });
+  }
+
+  function resetGame() {
+    nodes = cloneLevel();
+    fleets = [];
+    sparks = [];
+    elapsed = 0;
+    won = false;
+    dragSource = null;
+    pointerPos = null;
+    cutting = false;
+    cutPointerId = null;
+    lastCutPoint = null;
+    cutTrail = [];
+    overlay.classList.remove('show');
+    updateHud();
+  }
+
+  function playfieldRect() {
+    var side = Math.min(W, H * 1.5);
+    var pad = side * PADDING;
+    return { x0: pad, y0: pad, x1: W - pad, y1: H - pad };
+  }
+
+  function toPixel(nx, ny) {
+    var pf = playfieldRect();
+    return {
+      x: pf.x0 + nx * (pf.x1 - pf.x0),
+      y: pf.y0 + ny * (pf.y1 - pf.y0)
+    };
+  }
+
+  function diagonal() {
+    var pf = playfieldRect();
+    var dx = pf.x1 - pf.x0, dy = pf.y1 - pf.y0;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (stars.length === 0 || stars._w !== W || stars._h !== H) {
+      buildStars();
+    }
+  }
+
+  function buildStars() {
+    stars = [];
+    var count = Math.round((W * H) / 9000);
+    for (var i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.1 + 0.2,
+        a: Math.random() * 0.5 + 0.15
+      });
+    }
+    stars._w = W;
+    stars._h = H;
+  }
+
+  function segmentsIntersect(p1, p2, p3, p4) {
+    function cross(ax, ay, bx, by) { return ax * by - ay * bx; }
+    var d1x = p2.x - p1.x, d1y = p2.y - p1.y;
+    var d2x = p4.x - p3.x, d2y = p4.y - p3.y;
+    var denom = cross(d1x, d1y, d2x, d2y);
+    if (Math.abs(denom) < 1e-9) return -1;
+    var dx = p3.x - p1.x, dy = p3.y - p1.y;
+    var t = cross(dx, dy, d2x, d2y) / denom;
+    var u = cross(dx, dy, d1x, d1y) / denom;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? u : -1;
+  }
+
+  function checkCuts(from, to) {
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var a = toPixel(n.x, n.y);
+      for (var j = n.links.length - 1; j >= 0; j--) {
+        var b = toPixel(nodes[n.links[j]].x, nodes[n.links[j]].y);
+        var u = segmentsIntersect(from, to, a, b);
+        var id = n.links[j];
+        if (u >= 0 && !n.retract[id] && u <= n.grow[id]) {
+          n.retract[id] = true;
+          if (n.grow[id] >= 1) {
+            n.far[id] = { s: u, e: 1 };
+            n.grow[id] = u;
+          }
+          sparks.push({ x: to.x, y: to.y, t: 0 });
+        }
+      }
+    }
+  }
+
+  function nodeAt(px, py) {
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var p = toPixel(n.x, n.y);
+      var dx = px - p.x, dy = py - p.y;
+      var hitR = n.r + 10;
+      if (dx * dx + dy * dy <= hitR * hitR) return n;
+    }
+    return null;
+  }
+
+  function maxLinks(n) {
+    return n.units >= 100 ? 3 : n.units >= 15 ? 2 : 1;
+  }
+
+  function setLink(source, target) {
+    var idx = source.links.indexOf(target.id);
+    if (idx < 0 && target.links.indexOf(source.id) >= 0 && target.owner === source.owner) target.retract[source.id] = true;
+    if (idx >= 0) {
+      source.retract[target.id] = true;
+    } else if (source.links.length < maxLinks(source)) {
+      source.links.push(target.id);
+      source.grow[target.id] = 0;
+    }
+    if (!hintFaded) {
+      hintFaded = true;
+      hintEl.style.opacity = '0';
+    }
+  }
+
+  function oppositeGrow(n, id) {
+    var t = nodes[id];
+    return t.owner !== n.owner && t.links.indexOf(n.id) >= 0 ? t.grow[n.id] || 0 : 0;
+  }
+
+  function limitFor(n, id) {
+    var t = nodes[id];
+    return n.meet[id] && t.owner !== n.owner && t.links.indexOf(n.id) >= 0 ? 0.5 : 1;
+  }
+
+  function spawnUnit(source, target) {
+    var a = toPixel(source.x, source.y);
+    var b = toPixel(target.x, target.y);
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var speedPx = UNIT_SPEED * diagonal();
+    var duration = dist / speedPx;
+    fleets.push({
+      owner: source.owner,
+      sourceId: source.id,
+      targetId: target.id,
+      t: 0,
+      duration: Math.max(duration, 0.25)
+    });
+  }
+
+  function resolveArrival(fleet) {
+    receive(nodes[fleet.targetId], fleet.owner, 1);
+  }
+
+  function receive(target, owner, amount) {
+    if (target.owner === owner) {
+      target.units = Math.max(target.units, Math.min(target.cap, target.units + amount));
+    } else {
+      target.units -= amount;
+      if (target.units < 0) {
+        target.owner = owner;
+        target.units = 1;
+        target.links = [];
+        target.grow = {};
+        target.meet = {};
+        target.retract = {};
+        target.far = {};
+      }
+    }
+  }
+
+  function updateHud() {
+    var owned = nodes.filter(function (n) { return n.owner === 'player'; }).length;
+    var all = nodes.every(function (n) { return n.owner === nodes[0].owner && n.owner !== 'neutral'; });
+    hudPlanets.textContent = owned + '/' + nodes.length;
+    var m = Math.floor(elapsed / 60);
+    var s = Math.floor(elapsed % 60);
+    var str = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    hudTime.textContent = str;
+    if (all && !won) {
+      won = true;
+      finalTimeEl.textContent = str;
+      overlay.classList.add('show');
+    }
+  }
+
+  function step(dt) {
+    if (!won) elapsed += dt;
+
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      n.r = radiusFor(n.units);
+      if (n.owner === 'neutral') continue;
+      n.prodProgress += (MIN_RATE + (MAX_RATE - MIN_RATE) * Math.min(n.units, RATE_UNITS_MAX) / RATE_UNITS_MAX) * dt;
+      n.growProgress += GROW_RATE * dt;
+      while (n.growProgress >= 1) {
+        n.growProgress -= 1;
+        if (n.units < n.cap) n.units += 1;
+      }
+      while (n.prodProgress >= 1) {
+        n.prodProgress -= 1;
+        n.links.forEach(function (id) { if (n.grow[id] + oppositeGrow(n, id) >= 0.999) spawnUnit(n, nodes[id]); });
+      }
+    }
+
+    for (var g = 0; g < nodes.length; g++) {
+      var gn = nodes[g];
+      var ga = toPixel(gn.x, gn.y);
+      for (var gi = gn.links.length - 1; gi >= 0; gi--) {
+        var id = gn.links[gi];
+        if (oppositeGrow(gn, id) + gn.grow[id] >= 0.999) gn.meet[id] = true;
+        else if (nodes[id].owner === gn.owner || nodes[id].links.indexOf(gn.id) < 0) delete gn.meet[id];
+        var gb = toPixel(nodes[id].x, nodes[id].y);
+        var len = Math.max(Math.hypot(gb.x - ga.x, gb.y - ga.y), 1);
+        var d = LINE_SPEED * diagonal() * dt / len;
+        var costPerFrac = len / diagonal() * LINE_COST;
+        if (gn.retract[id]) {
+          d *= 3;
+          var d0 = Math.min(d, gn.grow[id]);
+          gn.grow[id] -= d0;
+          gn.units = Math.max(gn.units, Math.min(gn.cap, gn.units + d0 * costPerFrac));
+          var far = gn.far[id];
+          if (far) {
+            var d1 = Math.min(d, far.e - far.s);
+            far.s += d1;
+            receive(nodes[id], gn.owner, d1 * costPerFrac);
+          }
+          if (gn.grow[id] <= 0 && (!far || far.e - far.s <= 0)) {
+            gn.links.splice(gi, 1);
+            delete gn.grow[id];
+            delete gn.retract[id];
+            delete gn.far[id];
+          }
+        } else if (gn.grow[id] > limitFor(gn, id)) {
+          d = Math.min(d, gn.grow[id] - limitFor(gn, id));
+          gn.grow[id] -= d;
+          gn.units = Math.max(gn.units, Math.min(gn.cap, gn.units + d * costPerFrac));
+        } else if (gn.grow[id] < limitFor(gn, id)) {
+          d = Math.min(d, limitFor(gn, id) - gn.grow[id]);
+          if (gn.units >= d * costPerFrac) {
+            gn.grow[id] += d;
+            gn.units -= d * costPerFrac;
+          } else {
+            gn.retract[id] = true;
+          }
+        }
+      }
+    }
+
+    for (var m = 0; m < nodes.length; m++) {
+      var mn = nodes[m];
+      var active = mn.links.filter(function (id) { return !mn.retract[id]; });
+      for (var mi = maxLinks(mn); mi < active.length; mi++) {
+        if (mn.grow[active[mi]] >= 1) mn.retract[active[mi]] = true;
+      }
+    }
+
+    for (var j = fleets.length - 1; j >= 0; j--) {
+      var f = fleets[j];
+      f.t += dt;
+      if (f.t >= f.duration) {
+        resolveArrival(f);
+        fleets.splice(j, 1);
+      }
+    }
+
+    for (var k = sparks.length - 1; k >= 0; k--) {
+      sparks[k].t += dt;
+      if (sparks[k].t > 0.4) sparks.splice(k, 1);
+    }
+
+    updateHud();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    var bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#0a0d15');
+    bg.addColorStop(1, '#070911');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    for (var s = 0; s < stars.length; s++) {
+      var st = stars[s];
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(233,237,245,' + st.a + ')';
+      ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // persistent connections (the "arms" linking swarms)
+    for (var li = 0; li < nodes.length; li++) {
+      var ln = nodes[li];
+      var la = toPixel(ln.x, ln.y);
+      for (var lj = 0; lj < ln.links.length; lj++) {
+      var lt = nodes[ln.links[lj]];
+      var lb = toPixel(lt.x, lt.y);
+      var lcolor = COLORS[ln.owner];
+      ctx.beginPath();
+      ctx.setLineDash([2, 10]);
+      ctx.lineDashOffset = -elapsed * 60;
+      ctx.strokeStyle = 'rgba(' + lcolor + ',0.5)';
+      ctx.lineWidth = 2;
+      ctx.moveTo(la.x, la.y);
+      var lg = ln.grow[ln.links[lj]] || 0;
+      ctx.lineTo(la.x + (lb.x - la.x) * lg, la.y + (lb.y - la.y) * lg);
+      ctx.stroke();
+      var lf = ln.far[ln.links[lj]];
+      if (lf && lf.e > lf.s) {
+        ctx.beginPath();
+        ctx.moveTo(la.x + (lb.x - la.x) * lf.s, la.y + (lb.y - la.y) * lf.s);
+        ctx.lineTo(la.x + (lb.x - la.x) * lf.e, la.y + (lb.y - la.y) * lf.e);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      }
+    }
+
+    // cutting gesture trail
+    if (cutting && cutTrail.length > 1) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(224,100,95,0.7)';
+      ctx.lineWidth = 2;
+      ctx.moveTo(cutTrail[0].x, cutTrail[0].y);
+      for (var ci = 1; ci < cutTrail.length; ci++) {
+        ctx.lineTo(cutTrail[ci].x, cutTrail[ci].y);
+      }
+      ctx.stroke();
+    }
+
+    // spark bursts where a connection was severed
+    for (var sp = 0; sp < sparks.length; sp++) {
+      var spark = sparks[sp];
+      var life = spark.t / 0.4;
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(224,100,95,' + (1 - life) + ')';
+      ctx.lineWidth = 2;
+      ctx.arc(spark.x, spark.y, 4 + life * 16, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // traveling units (one by one along a connection)
+    for (var i = 0; i < fleets.length; i++) {
+      var f = fleets[i];
+      var src = nodes[f.sourceId];
+      var tgt = nodes[f.targetId];
+      var a = toPixel(src.x, src.y);
+      var b = toPixel(tgt.x, tgt.y);
+      var prog = Math.min(1, f.t / f.duration);
+      var cx = a.x + (b.x - a.x) * prog;
+      var cy = a.y + (b.y - a.y) * prog;
+      var color = COLORS[f.owner];
+
+      var trailStart = Math.max(0, prog - 0.22);
+      var tsx = a.x + (b.x - a.x) * trailStart;
+      var tsy = a.y + (b.y - a.y) * trailStart;
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(' + color + ',0.45)';
+      ctx.lineWidth = 2;
+      ctx.moveTo(tsx, tsy);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(' + color + ',0.95)';
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // drag preview line
+    if (dragSource && pointerPos) {
+      var p0 = toPixel(dragSource.x, dragSource.y);
+      ctx.beginPath();
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(' + COLORS[dragSource.owner] + ',0.55)';
+      ctx.lineWidth = 2;
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(pointerPos.x, pointerPos.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // nodes
+    for (var k = 0; k < nodes.length; k++) {
+      var n = nodes[k];
+      var p = toPixel(n.x, n.y);
+      var isPlayer = n.owner !== 'neutral';
+      var color = COLORS[n.owner];
+
+      if (isPlayer) {
+        var glow = ctx.createRadialGradient(p.x, p.y, n.r * 0.3, p.x, p.y, n.r * 2.1);
+        glow.addColorStop(0, 'rgba(' + color + ',0.28)');
+        glow.addColorStop(1, 'rgba(' + color + ',0)');
+        ctx.beginPath();
+        ctx.fillStyle = glow;
+        ctx.arc(p.x, p.y, n.r * 2.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // fill capacity ring
+      var frac = Math.max(0, Math.min(1, n.units / n.cap));
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(' + color + ',0.22)';
+      ctx.lineWidth = 3;
+      ctx.arc(p.x, p.y, n.r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(' + color + ',0.9)';
+      ctx.lineWidth = 3;
+      ctx.arc(p.x, p.y, n.r + 6, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.fillStyle = isPlayer ? 'rgba(' + color + ',0.2)' : '#171c29';
+      ctx.arc(p.x, p.y, n.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(' + color + ',0.7)';
+      ctx.stroke();
+
+      ctx.fillStyle = isPlayer ? '#eafff9' : '#c3c9db';
+      ctx.font = '600 13px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(Math.floor(n.units)), p.x, p.y - 3);
+
+      if (n.owner !== 'neutral') {
+        var slots = maxLinks(n);
+        for (var d = 0; d < slots; d++) {
+          ctx.beginPath();
+          ctx.fillStyle = d < n.links.length ? '#ffffff' : 'rgba(' + color + ',0.45)';
+          ctx.arc(p.x + (d - (slots - 1) / 2) * 8, p.y + 10, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  function loop(ts) {
+    if (!loop._last) loop._last = ts;
+    var dt = Math.min(0.05, (ts - loop._last) / 1000);
+    loop._last = ts;
+    step(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // pointer interaction
+  canvas.addEventListener('pointerdown', function (e) {
+    if (won) return;
+    var rect = canvas.getBoundingClientRect();
+    var x = e.clientX - rect.left, y = e.clientY - rect.top;
+    var hit = nodeAt(x, y);
+    if (hit && hit.owner !== 'neutral') {
+      dragSource = hit;
+      pointerPos = { x: x, y: y };
+      activePointerId = e.pointerId;
+      canvas.setPointerCapture(e.pointerId);
+    } else {
+      // pressing on empty space (or a planet that isn't yours) starts a
+      // cutting gesture: drag the resulting line across a connection to sever it
+      cutting = true;
+      cutPointerId = e.pointerId;
+      lastCutPoint = { x: x, y: y };
+      cutTrail = [{ x: x, y: y }];
+      canvas.setPointerCapture(e.pointerId);
+    }
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    var rect = canvas.getBoundingClientRect();
+    if (dragSource && e.pointerId === activePointerId) {
+      pointerPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    } else if (cutting && e.pointerId === cutPointerId) {
+      var pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      checkCuts(lastCutPoint, pt);
+      lastCutPoint = pt;
+      cutTrail.push(pt);
+      if (cutTrail.length > 20) cutTrail.shift();
+    }
+  });
+
+  function endDrag(e) {
+    if (dragSource && e.pointerId === activePointerId) {
+      var rect = canvas.getBoundingClientRect();
+      var x = e.clientX - rect.left, y = e.clientY - rect.top;
+      var hit = nodeAt(x, y);
+      if (hit && hit.id !== dragSource.id) {
+        setLink(dragSource, hit);
+      } else if (hit && hit.id === dragSource.id) {
+        dragSource.links.forEach(function (id) { dragSource.retract[id] = true; });
+      }
+      dragSource = null;
+      pointerPos = null;
+      activePointerId = null;
+    } else if (cutting && e.pointerId === cutPointerId) {
+      cutting = false;
+      cutPointerId = null;
+      lastCutPoint = null;
+      cutTrail = [];
+    }
+  }
+
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', function () {
+    dragSource = null;
+    pointerPos = null;
+    activePointerId = null;
+    cutting = false;
+    cutPointerId = null;
+    lastCutPoint = null;
+    cutTrail = [];
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', resetGame);
+  document.getElementById('btn-again').addEventListener('click', resetGame);
+
+  function launch(def) {
+    levelDef = def;
+    document.getElementById('menu').hidden = true;
+    document.querySelector('header').hidden = false;
+    document.querySelector('main').hidden = false;
+    resize();
+    resetGame();
+  }
+
+  document.getElementById('btn-test').addEventListener('click', function () { launch(scenario1); });
+  document.getElementById('btn-test2').addEventListener('click', function () { launch(scenario2); });
+
+  window.addEventListener('resize', resize);
+
+  function start(savedData) {
+    resize();
+    resetGame();
+    requestAnimationFrame(loop);
+  }
+
+  if (window.claude && window.claude.hot) {
+    window.claude.hot.ready ? window.claude.hot.ready(start) : start({});
+  } else {
+    start({});
+  }
+})();
+</script>
+
+</body></html>
